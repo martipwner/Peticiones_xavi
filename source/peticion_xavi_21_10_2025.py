@@ -41,37 +41,58 @@ def preprocess_csv(input_file):
 
 # Procesar todos los archivos CSV en el directorio actual
 if __name__ == "__main__":
-    # Obtener el directorio donde se encuentra el script
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # Crear carpeta de respaldo si no existe
-    backup_dir = os.path.join(current_dir, "bck")
-    if not os.path.exists(backup_dir):
-        os.makedirs(backup_dir)
-        print(f"Carpeta de respaldo creada: {backup_dir}")
-    
-    # Buscar todos los archivos CSV en el directorio
-    csv_files = glob.glob(os.path.join(current_dir, "*.csv"))
+    try:
+        # Obtener el directorio donde se encuentra el script o ejecutable
+        # Esto funciona tanto para .py como para .exe compilado con PyInstaller
+        if getattr(sys, 'frozen', False):
+            # Si está ejecutándose como ejecutable compilado
+            current_dir = os.path.dirname(sys.executable)
+        else:
+            # Si está ejecutándose como script Python
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        print(f"Directorio de trabajo: {current_dir}\n")
+        
+        # Crear carpeta de respaldo si no existe
+        backup_dir = os.path.join(current_dir, "bck")
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+            print(f"Carpeta de respaldo creada: {backup_dir}")
+        
+        # Buscar todos los archivos CSV en el directorio
+        csv_files = glob.glob(os.path.join(current_dir, "*.csv"))
 
-    if not csv_files:
-        print("No se encontraron archivos CSV en el directorio.")
-        sys.exit(1)
+        if not csv_files:
+            print("No se encontraron archivos CSV en el directorio.")
+            input("\nPresiona ENTER para salir...")
+            sys.exit(1)
 
-    # Contador de archivos procesados
-    processed_count = 0
+        # Contador de archivos procesados
+        processed_count = 0
+        
+        for csv_file in csv_files:
+            # Saltar archivos que ya tienen '_ok' en el nombre para evitar reprocesar
+            if not csv_file.endswith('_ok.csv'):
+                # Procesar el archivo
+                if preprocess_csv(csv_file):
+                    # Si se procesó correctamente, mover el original a la carpeta bck
+                    file_name = os.path.basename(csv_file)
+                    backup_path = os.path.join(backup_dir, file_name)
+                    shutil.move(csv_file, backup_path)
+                    print(f"Archivo original movido a: {backup_path}")
+                    processed_count += 1
+        
+        print(f"\n=== Proceso completado ===")
+        print(f"Total de archivos procesados: {processed_count}")
+        print(f"Archivos originales guardados en: {backup_dir}")
+        
+    except Exception as e:
+        print(f"\n!!! ERROR INESPERADO !!!")
+        print(f"Tipo de error: {type(e).__name__}")
+        print(f"Detalles: {e}")
+        import traceback
+        traceback.print_exc()
     
-    for csv_file in csv_files:
-        # Saltar archivos que ya tienen '_ok' en el nombre para evitar reprocesar
-        if not csv_file.endswith('_ok.csv'):
-            # Procesar el archivo
-            if preprocess_csv(csv_file):
-                # Si se procesó correctamente, mover el original a la carpeta bck
-                file_name = os.path.basename(csv_file)
-                backup_path = os.path.join(backup_dir, file_name)
-                shutil.move(csv_file, backup_path)
-                print(f"Archivo original movido a: {backup_path}")
-                processed_count += 1
-    
-    print(f"\n=== Proceso completado ===")
-    print(f"Total de archivos procesados: {processed_count}")
-    print(f"Archivos originales guardados en: {backup_dir}")
+    finally:
+        # Pausar al final para que el usuario pueda ver el resultado
+        input("\nPresiona ENTER para salir...")
