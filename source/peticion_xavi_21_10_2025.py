@@ -4,6 +4,22 @@ import glob
 import sys
 import unicodedata
 import shutil
+import time
+
+def wait_before_exit(message="", seconds=3):
+    """Espera antes de salir - compatible con --noconsole"""
+    try:
+        # Intentar usar input() si hay consola disponible
+        if sys.stdin and sys.stdin.readable():
+            input(message if message else "\nPresiona ENTER para salir...")
+        else:
+            # Si no hay consola, simplemente esperar un tiempo
+            if message:
+                print(message)
+            time.sleep(seconds)
+    except:
+        # Si falla, esperar un tiempo
+        time.sleep(seconds)
 
 def remove_accents(text):
     """Elimina tildes y acentos de un texto"""
@@ -12,7 +28,7 @@ def remove_accents(text):
     # Filtra solo los caracteres que no son marcas diacríticas
     return ''.join(char for char in nfd if unicodedata.category(char) != 'Mn')
 
-def preprocess_csv(input_file):
+def preprocess_csv(input_file, log_func=print):
     # Obtener el directorio y nombre base del archivo de entrada
     output_dir = os.path.dirname(input_file)
     base_name = os.path.splitext(os.path.basename(input_file))[0]
@@ -33,14 +49,15 @@ def preprocess_csv(input_file):
                 ]
                 writer.writerow(cleaned_row)
 
-        print(f"Archivo procesado guardado como: {output_file}")
+        log_func(f"Archivo procesado guardado como: {output_file}")
         return True
     except Exception as e:
-        print(f"Error procesando {input_file}: {e}")
+        log_func(f"Error procesando {input_file}: {e}")
         return False
 
 # Procesar todos los archivos CSV en el directorio actual
 if __name__ == "__main__":
+    log_file = None
     try:
         # Obtener el directorio donde se encuentra el script o ejecutable
         # Esto funciona tanto para .py como para .exe compilado con PyInstaller
@@ -51,20 +68,31 @@ if __name__ == "__main__":
             # Si está ejecutándose como script Python
             current_dir = os.path.dirname(os.path.abspath(__file__))
         
-        print(f"Directorio de trabajo: {current_dir}\n")
+        # Crear archivo de log
+        log_path = os.path.join(current_dir, "proceso_csv.log")
+        log_file = open(log_path, 'w', encoding='utf-8')
+        
+        def log_print(message):
+            """Imprime y escribe en el log"""
+            print(message)
+            if log_file:
+                log_file.write(message + "\n")
+                log_file.flush()
+        
+        log_print(f"Directorio de trabajo: {current_dir}\n")
         
         # Crear carpeta de respaldo si no existe
         backup_dir = os.path.join(current_dir, "bck")
         if not os.path.exists(backup_dir):
             os.makedirs(backup_dir)
-            print(f"Carpeta de respaldo creada: {backup_dir}")
+            log_print(f"Carpeta de respaldo creada: {backup_dir}")
         
         # Buscar todos los archivos CSV en el directorio
         csv_files = glob.glob(os.path.join(current_dir, "*.csv"))
 
         if not csv_files:
-            print("No se encontraron archivos CSV en el directorio.")
-            input("\nPresiona ENTER para salir...")
+            log_print("No se encontraron archivos CSV en el directorio.")
+            wait_before_exit("\nPresiona ENTER para salir...", 5)
             sys.exit(1)
 
         # Contador de archivos procesados
@@ -74,25 +102,32 @@ if __name__ == "__main__":
             # Saltar archivos que ya tienen '_ok' en el nombre para evitar reprocesar
             if not csv_file.endswith('_ok.csv'):
                 # Procesar el archivo
-                if preprocess_csv(csv_file):
+                if preprocess_csv(csv_file, log_print):
                     # Si se procesó correctamente, mover el original a la carpeta bck
                     file_name = os.path.basename(csv_file)
                     backup_path = os.path.join(backup_dir, file_name)
                     shutil.move(csv_file, backup_path)
-                    print(f"Archivo original movido a: {backup_path}")
+                    log_print(f"Archivo original movido a: {backup_path}")
                     processed_count += 1
         
-        print(f"\n=== Proceso completado ===")
-        print(f"Total de archivos procesados: {processed_count}")
-        print(f"Archivos originales guardados en: {backup_dir}")
+        log_print(f"\n=== Proceso completado ===")
+        log_print(f"Total de archivos procesados: {processed_count}")
+        log_print(f"Archivos originales guardados en: {backup_dir}")
         
     except Exception as e:
-        print(f"\n!!! ERROR INESPERADO !!!")
-        print(f"Tipo de error: {type(e).__name__}")
-        print(f"Detalles: {e}")
         import traceback
+        error_msg = f"\n!!! ERROR INESPERADO !!!\nTipo de error: {type(e).__name__}\nDetalles: {e}"
+        print(error_msg)
+        if log_file:
+            log_file.write(error_msg + "\n")
+            traceback.print_exc(file=log_file)
+            log_file.flush()
         traceback.print_exc()
     
     finally:
+        # Cerrar archivo de log
+        if log_file:
+            log_file.write("\n=== Fin del proceso ===\n")
+            log_file.close()
         # Pausar al final para que el usuario pueda ver el resultado
-        input("\nPresiona ENTER para salir...")
+        wait_before_exit("\nPresiona ENTER para salir...", 5)
