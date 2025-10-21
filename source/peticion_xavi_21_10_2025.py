@@ -6,19 +6,12 @@ import unicodedata
 import shutil
 import time
 
-def wait_before_exit(message="", seconds=3):
+def wait_before_exit(seconds=3):
     """Espera antes de salir - compatible con --noconsole"""
     try:
-        # Intentar usar input() si hay consola disponible
-        if sys.stdin and sys.stdin.readable():
-            input(message if message else "\nPresiona ENTER para salir...")
-        else:
-            # Si no hay consola, simplemente esperar un tiempo
-            if message:
-                print(message)
-            time.sleep(seconds)
+        input("\nPresiona ENTER para salir...")
     except:
-        # Si falla, esperar un tiempo
+        # Si falla (ej: --noconsole), solo esperar
         time.sleep(seconds)
 
 def remove_accents(text):
@@ -92,7 +85,7 @@ if __name__ == "__main__":
 
         if not csv_files:
             log_print("No se encontraron archivos CSV en el directorio.")
-            wait_before_exit("\nPresiona ENTER para salir...", 5)
+            wait_before_exit(5)
             sys.exit(1)
 
         # Contador de archivos procesados
@@ -130,4 +123,4 @@ if __name__ == "__main__":
             log_file.write("\n=== Fin del proceso ===\n")
             log_file.close()
         # Pausar al final para que el usuario pueda ver el resultado
-        wait_before_exit("\nPresiona ENTER para salir...", 5)
+        wait_before_exit(5)
