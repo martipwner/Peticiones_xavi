@@ -3,6 +3,7 @@ import csv
 import glob
 import sys
 import unicodedata
+import shutil
 
 def remove_accents(text):
     """Elimina tildes y acentos de un texto"""
@@ -33,13 +34,22 @@ def preprocess_csv(input_file):
                 writer.writerow(cleaned_row)
 
         print(f"Archivo procesado guardado como: {output_file}")
+        return True
     except Exception as e:
         print(f"Error procesando {input_file}: {e}")
+        return False
 
 # Procesar todos los archivos CSV en el directorio actual
 if __name__ == "__main__":
     # Obtener el directorio donde se encuentra el script
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    # Crear carpeta de respaldo si no existe
+    backup_dir = os.path.join(current_dir, "bck")
+    if not os.path.exists(backup_dir):
+        os.makedirs(backup_dir)
+        print(f"Carpeta de respaldo creada: {backup_dir}")
+    
     # Buscar todos los archivos CSV en el directorio
     csv_files = glob.glob(os.path.join(current_dir, "*.csv"))
 
@@ -47,7 +57,21 @@ if __name__ == "__main__":
         print("No se encontraron archivos CSV en el directorio.")
         sys.exit(1)
 
+    # Contador de archivos procesados
+    processed_count = 0
+    
     for csv_file in csv_files:
         # Saltar archivos que ya tienen '_ok' en el nombre para evitar reprocesar
         if not csv_file.endswith('_ok.csv'):
-            preprocess_csv(csv_file)
+            # Procesar el archivo
+            if preprocess_csv(csv_file):
+                # Si se procesó correctamente, mover el original a la carpeta bck
+                file_name = os.path.basename(csv_file)
+                backup_path = os.path.join(backup_dir, file_name)
+                shutil.move(csv_file, backup_path)
+                print(f"Archivo original movido a: {backup_path}")
+                processed_count += 1
+    
+    print(f"\n=== Proceso completado ===")
+    print(f"Total de archivos procesados: {processed_count}")
+    print(f"Archivos originales guardados en: {backup_dir}")
